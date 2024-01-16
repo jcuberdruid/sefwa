@@ -1,0 +1,3 @@
+Channel,Training Accuracy,Validation Accuracy,Testing Accuracy
+0,0.726625669002533,0.48846152424812317,0.4819819927215576
+Ensemble,,,0.481981981981982
