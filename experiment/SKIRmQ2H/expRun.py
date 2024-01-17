@@ -1,14 +1,14 @@
 import os
 import pickle 
+import numpy as np
 
 from cl import paths
 from cl.userExtension.eegHandler import EEGDataHandler
 from cl.userExtension.filterBank import FilterBank 
 from cl.userExtension.readyTrainingDataHandler import ReadyTrainingDataHandler
 
-
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend suitable for headless servers
+matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
 
 def save_waveform_plots(waveforms, sample_rate=160, num_samples=961, filename="waveforms.png"):
@@ -37,6 +37,15 @@ def save_waveform_plots(waveforms, sample_rate=160, num_samples=961, filename="w
 	plt.tight_layout()
 	fig.savefig(filename)
 
+def test_function(waveform):
+	if isinstance(waveform, np.ndarray):
+		print(waveform.shape)
+		waveform = np.zeros((1, 8))
+	else:
+		print("not an nd array")
+	return waveform
+
+
 def main():
 	rtdh = ReadyTrainingDataHandler()
 	rtdh.loadTrainingSet('5GZ6Ulbq')
@@ -52,11 +61,13 @@ def main():
 	
 	testing_data, testing_labels, training_data, training_labels = rtdh.kfold_set(0)
 
-	print(testing_data.shape)
-	print(testing_labels.shape)
-	print(training_data.shape)
-	print(training_labels.shape)
-
+	print("testing touch function")
+	for subject in testing_data:
+		subject.touch_epoch_data(test_function)
+	for subject in testing_data:
+		subject.transform_epoch_data(test_function)
+	for subject in testing_data:
+		subject.touch_epoch_data(test_function)
 
 def main2():
 	class_1_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T1.csv")
@@ -72,13 +83,13 @@ def main2():
 	fb_2 = FilterBank(4, 40, 4)
 	subjects = eeg_handler_class_2.subjects.copy()
 	filteredSubjects_2 = fb_2.bankSubjects(subjects)
-
+	'''
 	for x in filteredSubjects_1: 
 		x.split_epochs(320, 960, 160)
 	
 	for x in filteredSubjects_2: 
 		x.split_epochs(320, 960, 160)
-
+	'''
 	rtdh = ReadyTrainingDataHandler()
 	rtdh.create_kfolds(filteredSubjects_1, filteredSubjects_2, 5)
 	rtdh.saveTrainingSet()

@@ -58,24 +58,19 @@ class ReadyTrainingDataHandler:
 			self.data = pickle.load(file)
 			self.id = id_to_load
 	def kfold_set(self, kfold):
-		# Check if kfolds have been created
 		if self.data is None or len(self.data[0]) == 0 or len(self.data[1]) == 0:
 			print("ReadyTrainingDataHandler->kfold_set: Error - K-folds not created")
 			exit(1)
-
-		# Prepare testing data (using the specified kfold)
 		testing_data_class_1 = self.data[0][kfold]
 		testing_data_class_2 = self.data[1][kfold]
 		testing_data = np.concatenate((testing_data_class_1, testing_data_class_2))
 		testing_labels = np.concatenate((np.zeros(len(testing_data_class_1)), np.ones(len(testing_data_class_2))))
 
-		# Prepare training data (using all folds except the specified kfold)
 		training_data_class_1 = np.concatenate([self.data[0][i] for i in range(len(self.data[0])) if i != kfold])
 		training_data_class_2 = np.concatenate([self.data[1][i] for i in range(len(self.data[1])) if i != kfold])
 		training_data = np.concatenate((training_data_class_1, training_data_class_2))
 		training_labels = np.concatenate((np.zeros(len(training_data_class_1)), np.ones(len(training_data_class_2))))
 
-		# Shuffle the testing and training sets
 		testing_indices = np.arange(len(testing_data))
 		np.random.shuffle(testing_indices)
 		testing_data = testing_data[testing_indices]
