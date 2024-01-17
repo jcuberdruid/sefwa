@@ -18,39 +18,39 @@ class ExperimentManager:
         self.analysis_template_dir = "cl/templates/analysis/"
 
     def new_experiment(self, name, description):
-        uid = self.generateUID()
-        print(uid)
-        exp_path = os.path.join(self.experiment_dir, uid)
+        self.uid = self.generateUID()
+        print(self.uid)
+        exp_path = os.path.join(self.experiment_dir, self.uid)
         os.makedirs(exp_path)
 
         # Copy template contents to the new experiment directory
         self._copy_template_contents(self.experiment_template_dir, exp_path)
-        self._write_info_file(exp_path, name, description, uid)
-        os.makedirs(os.path.join(self.results_dir, ("results_"+uid)))
+        self._write_info_file(exp_path, name, description, self.uid)
+        os.makedirs(os.path.join(self.results_dir, ("results_"+self.uid)))
 
     def fork_experiment(self, existing_id):
         self._fork_item(self.experiment_dir, existing_id)
 
     def new_analysis(self, name, description):
-        uid = self.generateUID()
-        print(uid)
-        analysis_path = os.path.join(self.analysis_dir, uid)
+        self.uid = self.generateUID()
+        print(self.uid)
+        analysis_path = os.path.join(self.analysis_dir, self.uid)
         os.makedirs(analysis_path)
 
         # Copy template contents to the new analysis directory
         self._copy_template_contents(self.analysis_template_dir, analysis_path)
-        self._write_info_file(analysis_path, name, description, uid)
+        self._write_info_file(analysis_path, name, description, self.uid)
 
     def fork_analysis(self, existing_id):
         self._fork_item(self.analysis_dir, existing_id)
 
     def new_data(self, name, description):
-        uid = self.generateUID()
-        print(uid)
-        data_path = os.path.join(self.data_dir, uid)
+        self.uid = self.generateUID()
+        print(self.uid)
+        data_path = os.path.join(self.data_dir, self.uid)
         os.makedirs(data_path)
 
-        self._write_info_file(data_path, name, description, uid)
+        self._write_info_file(data_path, name, description, self.uid)
 
     def archive(self, ID, item_type):
         if item_type == 'experiment':
@@ -103,7 +103,6 @@ class ExperimentManager:
             uid = base64.urlsafe_b64encode(os.urandom(6)).decode('utf-8')  # Generates 8 char semi-UID
             if not self._is_duplicate_uid(uid):
                 return uid
-
     # Private helper methods
     def _is_duplicate_uid(self, uid):
         for directory in [self.experiment_dir, self.analysis_dir, self.data_dir, self.archive_dir]:

@@ -1,7 +1,10 @@
 import os
+import pickle 
+
 from cl import paths
 from cl.userExtension.eegHandler import EEGDataHandler
 from cl.userExtension.filterBank import FilterBank 
+from cl.userExtension.readyTrainingDataHandler import ReadyTrainingDataHandler
 
 
 import matplotlib
@@ -35,25 +38,47 @@ def save_waveform_plots(waveforms, sample_rate=160, num_samples=961, filename="w
 	fig.savefig(filename)
 
 def main():
-    class_1_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T1.csv")
-    eeg_handler_class_1 = EEGDataHandler(class_1_path, 0.10)
-    sample_dict = eeg_handler_class_1.subjects[1].epochs[4].channels_dict
-    print(sample_dict.keys())
+	rtdh = ReadyTrainingDataHandler()
+	rtdh.loadTrainingSet('5GZ6Ulbq')
+	d = rtdh.data
+	print(len(d))
+	print(len(d[0]))
+	print("class 1")
+	for x in d[0]:
+		print(len(x))
+	print("class 2")
+	for x in d[1]:
+		print(len(x))
 
-    fb = FilterBank(4, 40, 4)
-    subjects = eeg_handler_class_1.subjects.copy()
-    filteredSubjects = fb.bankSubjects(subjects)
-    
-    sample_dict = filteredSubjects[1].epochs[4].channels_dict
-    print(sample_dict.keys())
-    print(len(sample_dict['F7']))
-    print(sample_dict['F7'].keys())
-    print(type(sample_dict['F7']['16-20']))
-    print(type(sample_dict['F7']['16-20'][0]))
-    save_waveform_plots(sample_dict['F7'])
 
-    #for x in subjects: 
-    for x in filteredSubjects: 
-	    x.split_epochs(320, 960, 160)
+def main2():
+	class_1_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T1.csv")
+	class_2_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T2.csv")
+
+	eeg_handler_class_1 = EEGDataHandler(class_1_path, 1)
+	eeg_handler_class_2 = EEGDataHandler(class_2_path, 1)
+
+	fb_1 = FilterBank(4, 40, 4)
+	subjects = eeg_handler_class_1.subjects.copy()
+	filteredSubjects_1 = fb_1.bankSubjects(subjects)
+
+	fb_2 = FilterBank(4, 40, 4)
+	subjects = eeg_handler_class_2.subjects.copy()
+	filteredSubjects_2 = fb_2.bankSubjects(subjects)
+
+	for x in filteredSubjects_1: 
+		x.split_epochs(320, 960, 160)
+	
+	for x in filteredSubjects_2: 
+		x.split_epochs(320, 960, 160)
+
+	rtdh = ReadyTrainingDataHandler()
+	rtdh.create_kfolds(filteredSubjects_1, filteredSubjects_2, 5)
+	rtdh.saveTrainingSet()
+	
+'''
+    with open('test_pickle_of_subjects_arr.pkl', 'wb') as f:
+    	pickle.dump(filteredSubjects, f)
+'''
 
 main()
