@@ -49,6 +49,13 @@ def main():
 	print("class 2")
 	for x in d[1]:
 		print(len(x))
+	
+	testing_data, testing_labels, training_data, training_labels = rtdh.kfold_set(0)
+
+	print(testing_data.shape)
+	print(testing_labels.shape)
+	print(training_data.shape)
+	print(training_labels.shape)
 
 
 def main2():
