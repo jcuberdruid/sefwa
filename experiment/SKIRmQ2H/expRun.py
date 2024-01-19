@@ -48,7 +48,7 @@ def test_function(waveform):
 
 def main():
 	rtdh = ReadyTrainingDataHandler()
-	rtdh.loadTrainingSet('5GZ6Ulbq')
+	rtdh.loadTrainingSet('cBkVrLyf')
 	d = rtdh.data
 	print(len(d))
 	print(len(d[0]))
@@ -69,6 +69,13 @@ def main():
 	for subject in testing_data:
 		subject.touch_epoch_data(test_function)
 
+	print("gathering waveforms")	
+	for subject in testing_data:
+		subject.gather_all_waveforms()
+		print(len(subject.waveforms))
+		for x in subject.waveforms:
+			print(x.shape)
+		exit(0)
 def main2():
 	class_1_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T1.csv")
 	class_2_path = os.path.join(paths.projectDir, "data/JxGxSzB3/MI_RLH_T2.csv")
@@ -83,20 +90,15 @@ def main2():
 	fb_2 = FilterBank(4, 40, 4)
 	subjects = eeg_handler_class_2.subjects.copy()
 	filteredSubjects_2 = fb_2.bankSubjects(subjects)
-	'''
+
 	for x in filteredSubjects_1: 
 		x.split_epochs(320, 960, 160)
 	
 	for x in filteredSubjects_2: 
 		x.split_epochs(320, 960, 160)
-	'''
+	
 	rtdh = ReadyTrainingDataHandler()
 	rtdh.create_kfolds(filteredSubjects_1, filteredSubjects_2, 5)
 	rtdh.saveTrainingSet()
 	
-'''
-    with open('test_pickle_of_subjects_arr.pkl', 'wb') as f:
-    	pickle.dump(filteredSubjects, f)
-'''
-
 main()
