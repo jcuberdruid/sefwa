@@ -12,22 +12,23 @@ class Subject:
 				epoch.split_all_waveforms(start_sample, end_sample, sub_epoch_width)
 			else:
 				print("Subject->split_epochs: epochs are not of type Epoch")	
-	def touch_epoch_data(self, function_ptr, target_channels=None):
+	def touch_epoch_data(self, function_ptr, target_channels=None, return_high_level=False):
 		for epoch in self.epochs:
 			if isinstance(epoch, Epoch):
-				epoch.touch_raw_data(function_ptr, target_channels)
+				epoch.touch_raw_data(function_ptr, target_channels, return_high_level)
 			else:
 				print("Subject->split_epochs: epochs are not of type Epoch")
-	def transform_epoch_data(self, function_ptr, target_channels=None):
-                for epoch in self.epochs:
-                        if isinstance(epoch, Epoch):
-                                epoch.transform_raw_data(function_ptr, target_channels)
-                        else:
-                                print("Subject->split_epochs: epochs are not of type Epoch")
+	def transform_epoch_data(self, function_ptr, target_channels=None, return_high_level=False):
+		for epoch in self.epochs:
+			if isinstance(epoch, Epoch):
+				epoch.transform_raw_data(function_ptr, target_channels, return_high_level)
+			else:
+				print("Subject->split_epochs: epochs are not of type Epoch")
+	
 	def gather_waveform(self, waveform):
 		self.waveforms.append(waveform)
-	def gather_all_waveforms(self):
+	def gather_all_waveforms(self, target_channels = None, return_high_level=False):
 		gather_function = lambda waveform: self.gather_waveform(waveform)
 		for epoch in self.epochs:
-			epoch.touch_raw_data(gather_function)
+			epoch.touch_raw_data(gather_function, target_channels, return_high_level)
 		

@@ -17,12 +17,15 @@ class Epoch:
 			print(f"Epoch->split_list: length epoch {len(waveform)}")
 			print(f"Epoch->split_list: length sub-epoch {len(sub_epochs[0])}")
 		return np.array(sub_epochs)
-	def transform_raw_data(self, function_ptr, target_channels=None):
+	def transform_raw_data(self, function_ptr, target_channels=None, return_high_level = False):
 		for channel, data in self.channels_dict.items():
 			if target_channels is None or channel in target_channels:
 				if isinstance(data, np.ndarray):
 					self.channels_dict[channel] = function_ptr(data)
 				elif isinstance(data, dict):
+					if return_high_level is True: # if you want the dict
+						self.channels_dict[channel] = function_ptr(data)
+						continue
 					for key, waveform in data.items():
 						if isinstance(waveform, np.ndarray):
 							data[key] = function_ptr(waveform)
@@ -37,8 +40,9 @@ class Epoch:
 		def split_function(waveform):
 			return self.split_list(waveform, start_sample, end_sample, sub_epoch_width)
 		self.transform_raw_data(split_function)
-	def touch_raw_data(self, function_ptr, target_channels=None):
+
+	def touch_raw_data(self, function_ptr, target_channels=None, return_high_level = False):
 		def touch_function(waveform):
 			function_ptr(waveform.copy()) 
-			return waveform  
-		self.transform_raw_data(touch_function, target_channels)
+			return waveform
+		self.transform_raw_data(touch_function, target_channels, return_high_level)
