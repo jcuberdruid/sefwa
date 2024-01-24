@@ -34,13 +34,13 @@ class ReadyTrainingDataHandler:
 
 		:param channels_to_remove: List of channel names (strings) to be removed.
 		"""
-# Iterate over both classes in self.data
+		# Iterate over both classes in self.data
 		for class_group in self.data:
-# Iterate over each fold
+			# Iterate over each fold
 			for subjects in class_group:
-# Iterate over each subject
+				# Iterate over each subject
 				for subject in subjects:
-# Remove channels from each subject
+					# Remove channels from each subject
 					self.remove_channels_from_subject(subject, channels_to_remove)
 
 	@staticmethod
@@ -51,8 +51,8 @@ class ReadyTrainingDataHandler:
 		:param subject: Subject object.
 		:param channels_to_remove: List of channel names (strings) to be removed.
 		"""
-# Assuming subject has an attribute 'epochs' which is a list of epoch objects
-# and each epoch object has a dictionary 'channels_dict' with channel data
+		# Assuming subject has an attribute 'epochs' which is a list of epoch objects
+		# and each epoch object has a dictionary 'channels_dict' with channel data
 		for epoch in subject.epochs:
 			for channel in channels_to_remove:
 				if channel in epoch.channels_dict:
@@ -165,7 +165,6 @@ class ReadyTrainingDataHandler:
 				subject.waveforms = []
 			channel_data = self.flatten_array(channel_data) # flatten data to ensure just a list of ndarrays (in case of subepoching)
 			raw_data_dict[channel] = channel_data # the key for the channel holds an array of waveforms or lists of waveforms
-
 		# need to take a dict of channels with raw data and turn it into the form of an ndarray with shape (n_epochs, n_channels, n_times)
 		raw_data_array = dict_to_3d_array(raw_data_dict)
 		#print(f"CSP->get_raw 3d array length: {raw_data_array.shape}")
@@ -208,7 +207,7 @@ class ReadyTrainingDataHandler:
 		testing_labels = self.expand_labels(testing_data, testing_labels)	
 		training_labels = self.expand_labels(training_data, training_labels)	
 	
-		target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']	
+		target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']	# bad hard coded need filter solution
 		testing_csp_output_dict = {}
 		training_csp_output_dict = {}
 		#print(len(testing_data))
@@ -218,14 +217,9 @@ class ReadyTrainingDataHandler:
 			training_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(training_data, target_keys=key))
 			#print(training_csp_output_dict[key].shape)
 
-
 		testing_data = self.merge_arrays(testing_csp_output_dict)
 		training_data = self.merge_arrays(training_csp_output_dict)
-
 		#shuffle training and testing data + labels 
 		testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
 		training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
-
 		return testing_data, testing_labels, training_data, training_labels
-
-	
