@@ -27,6 +27,37 @@ class ReadyTrainingDataHandler:
 			fold_subjects_class_2 = subjects_class_2[start_idx:end_idx]
 			self.data[0].append(fold_subjects_class_1)
 			self.data[1].append(fold_subjects_class_2)
+
+	def remove_channels_from_epochs(self, channels_to_remove):
+		"""
+		Remove specified channels from all epochs of all subjects in self.data.
+
+		:param channels_to_remove: List of channel names (strings) to be removed.
+		"""
+# Iterate over both classes in self.data
+		for class_group in self.data:
+# Iterate over each fold
+			for subjects in class_group:
+# Iterate over each subject
+				for subject in subjects:
+# Remove channels from each subject
+					self.remove_channels_from_subject(subject, channels_to_remove)
+
+	@staticmethod
+	def remove_channels_from_subject(subject, channels_to_remove):
+		"""
+		Remove specified channels from all epochs of a single subject.
+
+		:param subject: Subject object.
+		:param channels_to_remove: List of channel names (strings) to be removed.
+		"""
+# Assuming subject has an attribute 'epochs' which is a list of epoch objects
+# and each epoch object has a dictionary 'channels_dict' with channel data
+		for epoch in subject.epochs:
+			for channel in channels_to_remove:
+				if channel in epoch.channels_dict:
+					del epoch.channels_dict[channel]
+
 	def saveTrainingSet(self):
 		if self.data == None: 
 			print("ReadyTrainingDataHandler->saveTrainingSet: Error data not prepared, no data to save") 
@@ -93,16 +124,37 @@ class ReadyTrainingDataHandler:
 		return [item for sublist in arr for item in (sublist if isinstance(sublist, list) else [sublist])]
 
 	def get_raw(self, subjects, target_keys=None):
+		if target_keys == None: # bad hard coded and target keys should be singular since doesn't take a list
+			target_keys = '4-8' 
 		target_channels = list(subjects[0].epochs[0].channels_dict.keys())
 		def dict_to_3d_array(dict_of_arrays):
-			list_length = len(next(iter(dict_of_arrays.values())))
-			array_length = len(dict_of_arrays[next(iter(dict_of_arrays))][0])
-			result_array = np.empty((list_length, len(dict_of_arrays), array_length))
-			for i, key in enumerate(dict_of_arrays):
-				for j, array in enumerate(dict_of_arrays[key]):
-					result_array[j, i, :] = array
-			return result_array
+			# Calculate total number of arrays
+			list_length = sum(item.shape[0] if isinstance(item, np.ndarray) else len(item) for item in next(iter(dict_of_arrays.values())))
 
+			# Find the maximum length of the inner arrays
+			array_length = max(sub_item.shape[1] if isinstance(sub_item, np.ndarray) else len(sub_item) 
+							for item in dict_of_arrays.values() 
+							for sub_item in (item if isinstance(item, list) else [item]))
+
+			# Initialize the result array
+			result_array = np.empty((list_length, len(dict_of_arrays), array_length))
+
+			for i, key in enumerate(dict_of_arrays):
+				pos = 0
+				for array in dict_of_arrays[key]:
+					if isinstance(array, np.ndarray):
+						# If the element is a numpy array
+						for sub_array in array:
+							result_array[pos, i, :len(sub_array)] = sub_array
+							pos += 1
+					elif isinstance(array, list):
+						# If the element is a single list
+						result_array[pos, i, :len(array)] = array
+						pos += 1
+					else:
+						raise TypeError("Unsupported type in dict_of_arrays")
+
+			return result_array
 		raw_data_dict = {}
 		for channel in target_channels:
 			channel_data = []
@@ -119,22 +171,61 @@ class ReadyTrainingDataHandler:
 		#print(f"CSP->get_raw 3d array length: {raw_data_array.shape}")
 		return raw_data_array	
 
+	def merge_arrays(self, dict_of_arrays):
+		arrays_list = []
+		for key in dict_of_arrays:
+			arrays_list.append(dict_of_arrays[key])
+		merged_array = np.stack(arrays_list, axis=1)
+		return merged_array
+
+	def epochs_per_subject(self, subjects):
+		arr_epochs_per_subject = []
+		for subject in subjects:
+			single_arr = [subject]
+			arr_epochs_per_subject.append(self.get_raw(single_arr).shape[0])
+
+		print(arr_epochs_per_subject)
+		return arr_epochs_per_subject
+
+	def expand_labels(self, subjects, labels):
+		expanded_labels = []	
+		arr_epochs_per_subject = self.epochs_per_subject(subjects)
+		for index, num_epochs in enumerate(arr_epochs_per_subject):
+			addition = [labels[index]] * num_epochs
+			expanded_labels = expanded_labels + addition
+		return expanded_labels
+
+	def shuffle_in_unison(self, labels, data):
+		assert len(labels) == data.shape[0], "Length of labels must match the first dimension of data array"
+		indices = np.arange(data.shape[0])
+		np.random.shuffle(indices)
+		shuffled_labels = np.array(labels)[indices]
+		shuffled_data = data[indices]
+		return shuffled_labels, shuffled_data
+
 	def kfold_csp_set(self, kfold, target_channels=None):
 		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
+		testing_labels = self.expand_labels(testing_data, testing_labels)	
+		training_labels = self.expand_labels(training_data, training_labels)	
+	
 		target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']	
 		testing_csp_output_dict = {}
 		training_csp_output_dict = {}
-		print(len(testing_data))
+		#print(len(testing_data))
 		for key in target_keys:
 			testing_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(testing_data, target_keys=key))
-			print(testing_csp_output_dict[key].shape)
+			#print(testing_csp_output_dict[key].shape)
 			training_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(training_data, target_keys=key))
-			print(training_csp_output_dict[key].shape)
-		exit(0)
-		#for each epoch (all channels particular frequency bank):
-			#gather epochs
-		#for each in gathered epochs:
-			#each =csp_model.transform()
+			#print(training_csp_output_dict[key].shape)
+
+
+		testing_data = self.merge_arrays(testing_csp_output_dict)
+		training_data = self.merge_arrays(training_csp_output_dict)
+
+		#shuffle training and testing data + labels 
+		testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
+		training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
+
 		return testing_data, testing_labels, training_data, training_labels
 
 	

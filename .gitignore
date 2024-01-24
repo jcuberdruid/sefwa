@@ -2,3 +2,5 @@ data/*
 origin/*
 best_model.hdf5
 **/__pycache__
+classifier_tuning/*
+autoencoder_tuning/*

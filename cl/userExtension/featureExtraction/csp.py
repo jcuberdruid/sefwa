@@ -15,14 +15,32 @@ class CSP:
 		return [item for sublist in arr for item in (sublist if isinstance(sublist, list) else [sublist])]
 
 	def get_raw(self, subjects, target_channels = None, target_keys=None):
+
 		def dict_to_3d_array(dict_of_arrays):
-			list_length = len(next(iter(dict_of_arrays.values())))
-			array_length = len(dict_of_arrays[next(iter(dict_of_arrays))][0])
+			list_length = sum(item.shape[0] if isinstance(item, np.ndarray) else len(item) for item in next(iter(dict_of_arrays.values())))
+			array_length = max(sub_item.shape[1] if isinstance(sub_item, np.ndarray) else len(sub_item) 
+							for item in dict_of_arrays.values() 
+							for sub_item in (item if isinstance(item, list) else [item]))
+
 			result_array = np.empty((list_length, len(dict_of_arrays), array_length))
+
 			for i, key in enumerate(dict_of_arrays):
-				for j, array in enumerate(dict_of_arrays[key]):
-					result_array[j, i, :] = array
+				pos = 0
+				for array in dict_of_arrays[key]:
+					if isinstance(array, np.ndarray):
+						# If the element is a numpy array
+						for sub_array in array:
+							result_array[pos, i, :len(sub_array)] = sub_array
+							pos += 1
+					elif isinstance(array, list):
+						# If the element is a single list
+						result_array[pos, i, :len(array)] = array
+						pos += 1
+					else:
+						raise TypeError("Unsupported type in dict_of_arrays")
+
 			return result_array
+
 
 		raw_data_dict = {}
 		for channel in target_channels:

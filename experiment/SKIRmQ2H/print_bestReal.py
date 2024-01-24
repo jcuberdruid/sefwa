@@ -34,7 +34,7 @@ class AutoencoderHyperModel(HyperModel):
 		flattened = Flatten(name='flatten_layer')(inputs)
 
 		encoded = Dense(
-			units=hp.Int('encoder_units', min_value=32, max_value=1024, step=16),
+			units=hp.Int('encoder_units', min_value=32, max_value=256, step=16),
 			activation='relu',
 			name='encoder_dense'
 		)(flattened)
@@ -53,18 +53,25 @@ class AutoencoderHyperModel(HyperModel):
 		return autoencoder
 
 def tune_autoencoder(training_data, testing_data):
-	input_shape = (9, 7)
-	hypermodel = AutoencoderHyperModel(input_shape)
-	tuner = BayesianOptimization(
-		hypermodel,
-		objective='val_loss',
-		max_trials=10,  # Adjust as needed
-		num_initial_points=2,  # Number of random configurations to try first
-		directory='autoencoder_tuning',
-		project_name='autoencoder_bayesian'
-	)
-	tuner.search(training_data, training_data,epochs=100,validation_data=(testing_data, testing_data))
-	return tuner.get_best_models(num_models=1)[0]
+    input_shape = (9, 8)
+    hypermodel = AutoencoderHyperModel(input_shape)
+    tuner = BayesianOptimization(
+        hypermodel,
+        objective='val_loss',
+        max_trials=10,
+        num_initial_points=2,
+        directory='autoencoder_tuning',
+        project_name='autoencoder_bayesian'
+    )
+    tuner.search(training_data, training_data, epochs=100, validation_data=(testing_data, testing_data))
+
+    # Get the best hyperparameters
+    best_hp = tuner.get_best_hyperparameters()[0]
+    print("Best hyperparameters for autoencoder:", best_hp.values)
+
+    # Return the best model
+    return tuner.get_best_models(num_models=1)[0]
+
 
 class ClassifierHyperModel(HyperModel):
     def __init__(self, encoder):
@@ -74,11 +81,13 @@ class ClassifierHyperModel(HyperModel):
         for layer in self.encoder.layers:
             layer.trainable = False
 
+        # Start building the model from the encoder output
         x = self.encoder.layers[-2].output
 
+        # Dynamically add dense layers
         for i in range(hp.Int('num_dense_layers', 1, 3)):
             x = Dense(
-                units=hp.Int(f'units_{i}', min_value=128, max_value=4096, step=16),
+                units=hp.Int(f'units_{i}', min_value=512, max_value=4096, step=16),
                 activation='sigmoid',
                 name=f'classifier_dense_{i}'
             )(x)
@@ -86,12 +95,15 @@ class ClassifierHyperModel(HyperModel):
                 hp.Float(f'dropout_{i}', min_value=0.0, max_value=0.1, step=0.1)
             )(x)
 
+        # Final output layer
         classifier_output = Dense(2, activation='softmax', name='classifier_output')(x)
+
+        # Create and compile the model
         classifier = Model(self.encoder.input, classifier_output, name='classifier_model')
         classifier.summary()
         classifier.compile(
             optimizer=tf.keras.optimizers.Adam(
-                hp.Float('learning_rate', min_value=1e-7, max_value=1e-1, sampling='LOG')
+                hp.Float('learning_rate', min_value=1e-5, max_value=1e-2, sampling='LOG')
             ),
             loss='sparse_categorical_crossentropy',
             metrics=['accuracy']
@@ -105,30 +117,43 @@ def tune_classifier(encoder, training_data, training_labels, testing_data, testi
     tuner = BayesianOptimization(
         hypermodel,
         objective='val_accuracy',
-        max_trials=1000,  
+        max_trials=1000,
         num_initial_points=20,
         directory='classifier_tuning',
         project_name='classifier_bayesian'
     )
 
-    early_stopping = EarlyStopping(monitor='val_accuracy', patience=10, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_accuracy', patience=5, restore_best_weights=True)
 
     tuner.search(
-        training_data, 
+        training_data,
         training_labels,
         epochs=100,
         validation_data=(testing_data, testing_labels),
         callbacks=[early_stopping]
     )
 
+    # Get the best hyperparameters
+    best_hp = tuner.get_best_hyperparameters()[0]
+
+    # Access the best trial's details
+    best_trial = tuner.oracle.get_best_trials(num_trials=1)[0]
+    best_val_accuracy = best_trial.metrics.get_best_value('val_accuracy')
+
+    print("Best hyperparameters for classifier:", best_hp.values)
+    print("Best validation accuracy:", best_val_accuracy)
+
+    # Return the best model
     return tuner.get_best_models(num_models=1)[0]
+
+
 
 def classify_test():
 	rtdh = ReadyTrainingDataHandler()
-	rtdh.loadTrainingSet('-q69ZUCR')
+	rtdh.loadTrainingSet('dz05QLQr')
 	d = rtdh.data
 	
-	testing_data, testing_labels, training_data, training_labels = rtdh.kfold_csp_set(2)
+	testing_data, testing_labels, training_data, training_labels = rtdh.kfold_csp_set(1)
 
 	print("testing")
 	print(testing_data.shape)
@@ -142,20 +167,12 @@ def classify_test():
 	encoder = Model(inputs=best_autoencoder.input, outputs=best_autoencoder.layers[-2].output)
 	best_classifier = tune_classifier(encoder, training_data, training_labels, testing_data, testing_labels)
 	# split testing to be per subject:
-	'''
-	save model summary "model.to_json()
-	for each subject in testing data:
-		copy trained model = model.train(fine-tuning epochs, labels)		
-		copy trained model.test (testing epochs, labels)
 		
-
-	'''
 		
 
 def main():
 	rtdh = ReadyTrainingDataHandler()
-	#rtdh.loadTrainingSet('UJY1Rvga')
-	rtdh.loadTrainingSet('oTk6STxX')
+	rtdh.loadTrainingSet('UJY1Rvga')
 	d = rtdh.data
 	
 	print("class 2 kfold lengths:")
@@ -218,12 +235,6 @@ def main2():
 	eeg_handler_class_1 = EEGDataHandler(class_1_path, 1)
 	eeg_handler_class_2 = EEGDataHandler(class_2_path, 1)
 
-	all_electrodes = ["FC5", "FC3", "FC1", "FCZ", "FC2", "FC4", "FC6", "C5", "C3", "C1", "CZ", "C2", "C4", "C6", "CP5", "CP3", "CP1", "CPZ", "CP2", "CP4", "CP6", "FP1", "FPZ", "FP2", "AF7", "AF3", "AFZ", "AF4", "AF8", "F7", "F5", "F3", "F1", "FZ", "F2", "F4", "F6", "F8", "FT7", "FT8", "T7", "T8", "T9", "T10", "TP7", "TP8", "P7", "P5", "P3", "P1", "PZ", "P2", "P4", "P6", "P8", "PO7", "PO3", "POZ", "PO4", "PO8", "O1", "OZ", "O2", "IZ"]
-	exclude_electrodes = ["F7", "FT7", "FC6", "F8", "FT8", "AF8", "FC5"]
-
-	filtered_electrodes = [elec for elec in all_electrodes if elec not in exclude_electrodes]
-
-
 	fb_1 = FilterBank(4, 40, 4)
 	subjects = eeg_handler_class_1.subjects.copy()
 	filteredSubjects_1 = fb_1.bankSubjects(subjects)
@@ -237,10 +248,9 @@ def main2():
 	
 	for x in filteredSubjects_2: 
 		x.split_epochs(320, 960, 160)
-
+		
 	rtdh = ReadyTrainingDataHandler()
 	rtdh.create_kfolds(filteredSubjects_1, filteredSubjects_2, 5)
-	rtdh.remove_channels_from_epochs(filtered_electrodes)
 	rtdh.saveTrainingSet()
 	
 #main()
