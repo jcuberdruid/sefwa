@@ -28,8 +28,17 @@ class ExperimentManager:
         self._write_info_file(exp_path, name, description, self.uid)
         os.makedirs(os.path.join(self.results_dir, ("results_"+self.uid)))
 
-    def fork_experiment(self, existing_id):
-        self._fork_item(self.experiment_dir, existing_id)
+    def fork_experiment(self, existing_id, description):
+        name = f"fork of {existing_id}"
+        self.uid = self.generateUID()
+        print(self.uid)
+        exp_path = os.path.join(self.experiment_dir, self.uid)
+        parent_path = os.path.join(self.experiment_dir, existing_id)
+        os.makedirs(exp_path)
+        # Copy parent experiment contents to the new experiment directory
+        self._copy_template_contents(parent_path, exp_path)
+        self._write_info_file(exp_path, name, description, self.uid)
+        os.makedirs(os.path.join(self.results_dir, ("results_"+self.uid)))	
 
     def new_analysis(self, name, description):
         self.uid = self.generateUID()
@@ -140,6 +149,7 @@ class ExperimentManagerCLI:
         # Command for fork_experiment
         fork_exp_parser = subparsers.add_parser('fork_experiment', help='Fork an existing experiment')
         fork_exp_parser.add_argument('id', type=str, help='ID of the experiment to fork')
+        fork_exp_parser.add_argument('description', type=str, help='Description of the analysis')
 
         # Command for new_analysis
         new_analysis_parser = subparsers.add_parser('new_analysis', help='Create a new analysis')
@@ -174,11 +184,11 @@ class ExperimentManagerCLI:
         if args.command == 'new_experiment':
             self.manager.new_experiment(args.name, args.description)
         elif args.command == 'fork_experiment':
-            self.manager.fork_experiment(args.id)
+            self.manager.fork_experiment(args.id, args.description)
         elif args.command == 'new_analysis':
             self.manager.new_analysis(args.name, args.description)
         elif args.command == 'fork_analysis':
-            self.manager.fork_analysis(args.id)
+            self.manager.fork_analysis(args.id, args.description)
         elif args.command == 'new_data':
             self.manager.new_data(args.name, args.description)
         elif args.command == 'archive':

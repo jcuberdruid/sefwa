@@ -74,6 +74,7 @@ class ReadyTrainingDataHandler:
 		save_data = [self.csp_filter_dict, self.data]
 		with open(savePath, 'wb') as file:			
 			pickle.dump(save_data, file)
+		return self.id
 	def loadTrainingSet(self, id_to_load): 
 		loadPath = os.path.join(paths.dataDir, id_to_load)
 		if not os.path.isdir(loadPath):
@@ -107,7 +108,7 @@ class ReadyTrainingDataHandler:
 		training_labels = np.concatenate((np.zeros(len(training_data_class_1)), np.ones(len(training_data_class_2))))
 
 		testing_indices = np.arange(len(testing_data))
-		np.random.shuffle(testing_indices)
+		#np.random.shuffle(testing_indices)
 		testing_data = testing_data[testing_indices]
 		testing_labels = testing_labels[testing_indices]
 
@@ -125,7 +126,8 @@ class ReadyTrainingDataHandler:
 
 	def get_raw(self, subjects, target_keys=None):
 		if target_keys == None: # bad hard coded and target keys should be singular since doesn't take a list
-			target_keys = '4-8' 
+			target_keys = ['4-8']
+			#target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']
 		target_channels = list(subjects[0].epochs[0].channels_dict.keys())
 		def dict_to_3d_array(dict_of_arrays):
 			# Calculate total number of arrays
@@ -161,7 +163,9 @@ class ReadyTrainingDataHandler:
 			for subject in subjects: 
 				subject.gather_all_waveforms([channel], return_high_level=True)
 				for high_level_dict in subject.waveforms:
-					channel_data.append(high_level_dict[target_keys])
+					for key in target_keys:
+						channel_data.append(high_level_dict[key])
+					#channel_data.append(high_level_dict[target_keys])
 				subject.waveforms = []
 			channel_data = self.flatten_array(channel_data) # flatten data to ensure just a list of ndarrays (in case of subepoching)
 			raw_data_dict[channel] = channel_data # the key for the channel holds an array of waveforms or lists of waveforms
@@ -177,18 +181,20 @@ class ReadyTrainingDataHandler:
 		merged_array = np.stack(arrays_list, axis=1)
 		return merged_array
 
-	def epochs_per_subject(self, subjects):
+	def epochs_per_subject(self, subjects, target_keys=None):
 		arr_epochs_per_subject = []
 		for subject in subjects:
 			single_arr = [subject]
-			arr_epochs_per_subject.append(self.get_raw(single_arr).shape[0])
+			arr_epochs_per_subject.append(self.get_raw(single_arr, target_keys).shape[0])
 
-		print(arr_epochs_per_subject)
+		print(f"Epochs per subject -> {arr_epochs_per_subject}")
 		return arr_epochs_per_subject
 
-	def expand_labels(self, subjects, labels):
+	def expand_labels(self, subjects, labels, target_keys=None):
+		if target_keys==None:
+			target_keys = ['4-8']
 		expanded_labels = []	
-		arr_epochs_per_subject = self.epochs_per_subject(subjects)
+		arr_epochs_per_subject = self.epochs_per_subject(subjects, target_keys)
 		for index, num_epochs in enumerate(arr_epochs_per_subject):
 			addition = [labels[index]] * num_epochs
 			expanded_labels = expanded_labels + addition
@@ -202,24 +208,147 @@ class ReadyTrainingDataHandler:
 		shuffled_data = data[indices]
 		return shuffled_labels, shuffled_data
 
-	def kfold_csp_set(self, kfold, target_channels=None):
+	def kfold_training_set_keys(self, kfold, target_channels=None, target_keys=None): #may have broken things here 
 		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
-		testing_labels = self.expand_labels(testing_data, testing_labels)	
-		training_labels = self.expand_labels(training_data, training_labels)	
+		print(target_keys)
+		if target_keys == None:
+			target_keys = ['8-12']
+		print(target_keys)
+		testing_labels = self.expand_labels(testing_data, testing_labels, target_keys)
+		training_labels = self.expand_labels(training_data, training_labels, target_keys)
+#target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']    # bad hard coded need filter solution
+
+		print("###############################################################")
+		print("# Starting Testing Data Aggreg")
+		print("###############################################################")
+		testing_data_raw = []
+		for subject in testing_data:
+			raw_all_freq_keys = []
+			for key in target_keys: #put all keys in a 1 * 400 * n keys 
+				print(key)
+				raw_all_freq_keys.append(self.get_raw([subject], target_keys=[key]).reshape(-1, 5 * 80))
+			raw_all_freq_keys_combined = np.vstack(raw_all_freq_keys).reshape(-1, len(target_keys)*400)
+			print(f"raw_all_freq_keys_combined shape {raw_all_freq_keys_combined.shape}")
+			testing_data_raw.append(raw_all_freq_keys_combined)
+		testing_data = np.vstack(testing_data_raw)
+		print(f"The testing data is of shape {testing_data.shape}")
+		print("###############################################################")
+		print("# Starting Training Data Aggreg")
+		print("###############################################################")
 	
-		target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']	# bad hard coded need filter solution
+		training_data_raw = []
+		for subject in training_data:
+			raw_all_freq_keys = []
+			for key in target_keys: #put all keys in a 1 * 400 * n keys 
+				raw_all_freq_keys.append(self.get_raw([subject], target_keys=[key]).reshape(-1, 5 * 80))
+			raw_all_freq_keys_combined = np.vstack(raw_all_freq_keys).reshape(-1, len(target_keys)*400)
+			print(f"raw_all_freq_keys_combined shape {raw_all_freq_keys_combined.shape}")
+			training_data_raw.append(raw_all_freq_keys_combined)
+		training_data = np.vstack(training_data_raw)
+		print(f"The training data is of shape {training_data.shape}")
+
+## for each subject -> get the raw data 
+#shuffle training and testing data + labels 
+		testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
+		training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
+		return testing_data, testing_labels, training_data, training_labels
+	
+	def kfold_training_set(self, kfold, target_channels=None, target_keys=None): #may have broken things here 
+		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
+		if target_keys == None:
+			target_keys = ['8-12']
+		testing_labels = self.expand_labels(testing_data, testing_labels, target_keys)
+		training_labels = self.expand_labels(training_data, training_labels, target_keys)
+		#target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']    # bad hard coded need filter solution
+
+		testing_data_raw = []
+		for subject in testing_data:
+			testing_data_raw.append(self.get_raw([subject], target_keys=target_keys).reshape(-1, 5 * 80))
+		testing_data = np.vstack(testing_data_raw)
+
+		training_data_raw = []
+		for subject in training_data:
+			training_data_raw.append(self.get_raw([subject], target_keys=target_keys).reshape(-1, 5 * 80))
+		training_data = np.vstack(training_data_raw)
+
+		## for each subject -> get the raw data 
+		#shuffle training and testing data + labels 
+		#testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
+		#training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
+		return testing_data, testing_labels, training_data, training_labels
+	def kfold_csp_set_tuned(self, kfold, target_channels=None, target_keys=None, tuning_percentage=0.1):
+		# Fetch testing and training data and labels
+		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
+		testing_labels = self.expand_labels(testing_data, testing_labels, target_keys=target_keys)
+		training_labels = self.expand_labels(training_data, training_labels, target_keys=target_keys)
+
+		# Set default target_keys if None
+		if target_keys is None:
+			target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']
+
+		# Prepare CSP output dictionaries
+		testing_csp_output_dict = {}
+		training_csp_output_dict = {}
+
+		# Apply CSP filtering to each target frequency range
+		for key in target_keys:
+			testing_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(testing_data, target_keys=[key]))
+			training_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(training_data, target_keys=[key]))
+
+		# Merge the filtered arrays
+		testing_data = self.merge_arrays(testing_csp_output_dict)
+		training_data = self.merge_arrays(training_csp_output_dict)
+
+		# Ensure data has the shape (None, 8) by removing any extra dimension
+		testing_data = np.squeeze(testing_data)
+		training_data = np.squeeze(training_data)
+
+		# Determine the split index for tuning data based on the tuning percentage
+		tuning_size = int(len(testing_data) * tuning_percentage)
+		tune_data, tune_labels = testing_data[:tuning_size], testing_labels[:tuning_size]
+		testing_data, testing_labels = testing_data[tuning_size:], testing_labels[tuning_size:]
+
+		# Shuffle the testing and training data + labels separately, preserving split
+		testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
+		training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
+
+		# Ensure labels are numpy arrays of native Python floats
+		testing_labels = np.array([float(label) for label in testing_labels])
+		training_labels = np.array([float(label) for label in training_labels])
+		tune_labels = np.array([float(label) for label in tune_labels])
+
+		# Return all datasets, including tuning set
+		return testing_data, testing_labels, training_data, training_labels, tune_data, tune_labels
+
+	def kfold_csp_set(self, kfold, target_channels=None, target_keys=None): #may have broken things here 
+		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
+		testing_labels = self.expand_labels(testing_data, testing_labels, target_keys = target_keys)	
+		training_labels = self.expand_labels(training_data, training_labels, target_keys = target_keys)	
+	
+		if target_keys == None:
+			target_keys = ['4-8', '8-12', '12-16', '16-20', '20-24', '24-28', '28-32', '32-36', '36-40']	# bad hard coded need filter solution
 		testing_csp_output_dict = {}
 		training_csp_output_dict = {}
 		#print(len(testing_data))
 		for key in target_keys:
-			testing_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(testing_data, target_keys=key))
+			testing_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(testing_data, target_keys=[key]))
 			#print(testing_csp_output_dict[key].shape)
-			training_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(training_data, target_keys=key))
+			training_csp_output_dict[key] = self.csp_filter_dict[kfold][key].transform(self.get_raw(training_data, target_keys=[key]))
 			#print(training_csp_output_dict[key].shape)
 
 		testing_data = self.merge_arrays(testing_csp_output_dict)
 		training_data = self.merge_arrays(training_csp_output_dict)
 		#shuffle training and testing data + labels 
+		print(f"testing_labels len {len(testing_labels)}")
+		print(f"training_labels len {len(training_labels)}")
+		print(f"testing_data len {len(testing_data)}")
+		print(f"training_data len {len(training_data)}")
+
 		testing_labels, testing_data = self.shuffle_in_unison(testing_labels, testing_data)
 		training_labels, training_data = self.shuffle_in_unison(training_labels, training_data)
 		return testing_data, testing_labels, training_data, training_labels
+	def apply_binary_filter(self, kfold, binary_filter):
+		testing_data, testing_labels, training_data, training_labels = self.kfold_set(kfold)
+		testing_labels = self.expand_labels(testing_data, testing_labels)
+		training_labels = self.expand_labels(training_data, training_labels)
+		print()

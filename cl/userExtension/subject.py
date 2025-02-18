@@ -15,7 +15,7 @@ class Subject:
 	def touch_epoch_data(self, function_ptr, target_channels=None, return_high_level=False):
 		for epoch in self.epochs:
 			if isinstance(epoch, Epoch):
-				epoch.touch_raw_data(function_ptr, target_channels, return_high_level)
+				epoch.touch_raw_data(self, function_ptr, target_channels, return_high_level)
 			else:
 				print("Subject->split_epochs: epochs are not of type Epoch")
 	def transform_epoch_data(self, function_ptr, target_channels=None, return_high_level=False):

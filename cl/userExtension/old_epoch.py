@@ -21,23 +21,23 @@ class Epoch:
 		for channel, data in self.channels_dict.items():
 			if target_channels is None or channel in target_channels:
 				if isinstance(data, np.ndarray):
-					self.channels_dict[channel] = function_ptr(self,data)
+					self.channels_dict[channel] = function_ptr(data)
 				elif isinstance(data, dict):
 					if return_high_level is True: # if you want the dict
 						self.channels_dict[channel] = function_ptr(data)
 						continue
 					for key, waveform in data.items():
 						if isinstance(waveform, np.ndarray):
-							data[key] = function_ptr(self, waveform)
+							data[key] = function_ptr(waveform)
 						elif isinstance(waveform, (list, tuple)):
 							transformed_waveforms = []
 							for single_waveform in waveform:
 								if isinstance(single_waveform, np.ndarray):
-									transformed_waveform = function_ptr(self,single_waveform)
+									transformed_waveform = function_ptr(single_waveform)
 									transformed_waveforms.append(transformed_waveform)
 							data[key] = np.array(transformed_waveforms)
 	def split_all_waveforms(self, start_sample, end_sample, sub_epoch_width):
-		def split_function(self, waveform):
+		def split_function(waveform):
 			return self.split_list(waveform, start_sample, end_sample, sub_epoch_width)
 		self.transform_raw_data(split_function)
 

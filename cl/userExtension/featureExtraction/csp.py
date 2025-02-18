@@ -5,6 +5,26 @@ import random
 from cl.userExtension import subject 
 from cl.userExtension import epoch 
 
+def inspect_dict_of_arrays(dict_of_arrays):
+    for key, item in dict_of_arrays.items():
+        print(f"Key: {key}")
+        if isinstance(item, list):
+            print(f"  Type: list, Length: {len(item)}")
+            for i, sub_item in enumerate(item):
+                if isinstance(sub_item, np.ndarray):
+                    print(f"    Item {i}: numpy array, Shape: {sub_item.shape}, Type: {type(sub_item)}")
+                    print(f"    Contents: {sub_item}")
+                else:
+                    print(f"    Item {i}: {type(sub_item)}, Length: {len(sub_item) if hasattr(sub_item, '__len__') else 'N/A'}")
+                    print(f"    Contents: {sub_item}")
+        elif isinstance(item, np.ndarray):
+            print(f"  Type: numpy array, Shape: {item.shape}, Type: {type(item)}")
+            print(f"  Contents: {item}")
+        else:
+            print(f"  Type: {type(item)}, Length: {len(item) if hasattr(item, '__len__') else 'N/A'}")
+            print(f"  Contents: {item}")
+        print()
+
 
 class CSP:
 	def __init__(self, max_attempts = 10):
@@ -17,8 +37,14 @@ class CSP:
 	def get_raw(self, subjects, target_channels = None, target_keys=None):
 
 		def dict_to_3d_array(dict_of_arrays):
+			'''
+			print(dict_of_arrays.keys())
+			print(len(dict_of_arrays['F7'])) #2111
+			print(len(dict_of_arrays['F7'][0])) #961
+			print(type(dict_of_arrays['F7'][0])) #
+			'''
 			list_length = sum(item.shape[0] if isinstance(item, np.ndarray) else len(item) for item in next(iter(dict_of_arrays.values())))
-			array_length = max(sub_item.shape[1] if isinstance(sub_item, np.ndarray) else len(sub_item) 
+			array_length =max(sub_item.shape[1] if isinstance(sub_item, np.ndarray) else len(sub_item) 
 							for item in dict_of_arrays.values() 
 							for sub_item in (item if isinstance(item, list) else [item]))
 

@@ -25,7 +25,8 @@ class EEGDataHandler:
 		print("EEGDataHandler->LoadEpochs: Function should be modified if number of subjects exceeds 256")
 		subjectArray = [0] * 256
 		for _, group in grouped:
-			if group.shape == (961, 69):
+			print(f"group shape {group.shape}")
+			if group.shape == (641, 69):
 				subject_index = group.iloc[0]['subject']  # Assuming 'subject' is a column
 				if subjectArray[subject_index-1] == 0:
 					subjectArray[subject_index-1] = Subject(group.iloc[0]['subject'], categoryName)
